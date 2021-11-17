@@ -94,7 +94,7 @@ class BottleNect(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes = 1000):
+    def __init__(self, block, num_blocks, num_classes = 10):
         super(ResNet, self).__init__()
 
         # 7x7, 64 channels, stride 2 in paper
@@ -105,12 +105,11 @@ class ResNet(nn.Module):
         self.bn      = nn.BatchNorm2d(self.in_planes)
         self.maxpool = nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1)
 
-        channels, strides = [ 64, 128, 256, 512 ], [ 1, 2, 2, 2 ]
-
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
+        _layers = []
+        outputs, strides = [64, 128, 256, 512], [1, 2, 2, 2]
+        for i in range(4):
+            _layers.append(self._make_layer(block, outputs[i], num_blocks[i], stride=strides[i]))
+        self.layers = nn.Sequential(*_layers)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.linear  = nn.Linear(512 * block.mul, num_classes)
@@ -128,10 +127,7 @@ class ResNet(nn.Module):
         out = self.bn(out)
         out = F.relu(out)
         out = self.maxpool(out)
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
+        out = self.layers(out) # layer 1 -> 2 -> 3 -> 4
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
         out = self.linear(out)
